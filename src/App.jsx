@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { jsPDF } from "jspdf";
 
 export default function App() {
   // === States ===
@@ -23,11 +22,11 @@ export default function App() {
   const arrowHeight = 40;
 
   const sceneryVideos = [
-    "images/background.mp4",
-    "images/background2.mp4",
-    "images/background3.mp4",
-    "images/background4.mp4",
-    "images/background5.mp4",
+    "https://www.dropbox.com/scl/fi/1tbqxz8xioelcak18g0gw/background.mp4?rlkey=07fiwtvr1ktqo2yyai9g81bnh&st=wmduauv8&raw=1",
+    "https://www.dropbox.com/scl/fi/e58n16oor3kzolheoxxn5/background2.mp4?rlkey=8m27bxjh42mugbbxtsz6e06g5&st=q183oibf&raw=1",
+    "https://www.dropbox.com/scl/fi/zzrjuq91acje6tfeezufs/background3.mp4?rlkey=7e4xrpmyndrhsuhu4qo1isizk&st=96z2ukhq&raw=1",
+    "https://www.dropbox.com/scl/fi/vnh6h80hxm0fpyj7tutvp/background4.mp4?rlkey=z1xcas6a3hoqb4kommvv9qlvz&st=9jyalcc7&raw=1",
+    "https://www.dropbox.com/scl/fi/vnh6h80hxm0fpyj7tutvp/background4.mp4?rlkey=z1xcas6a3hoqb4kommvv9qlvz&st=9jyalcc7&raw=1",
   ];
 
   const musicTracks = [
@@ -55,6 +54,7 @@ export default function App() {
       if (innerHeight > 0) setMaxHeight(innerHeight);
     };
 
+    // Run once immediately and once on next frame to catch layout
     updateMaxHeight();
     const raf = requestAnimationFrame(updateMaxHeight);
 
@@ -69,7 +69,7 @@ export default function App() {
     };
   }, [hasStarted]);
 
-  // Play/pause music
+  // Play/pause music based on isMusicPlaying or track change
   useEffect(() => {
     if (!audioRef.current || !hasStarted) return;
     if (isMusicPlaying) {
@@ -82,6 +82,7 @@ export default function App() {
   // === Handlers ===
   const startExperience = () => {
     setHasStarted(true);
+    // Try to start music after user interaction (satisfies autoplay policy)
     setTimeout(() => {
       if (audioRef.current) {
         audioRef.current.play().catch(() => {});
@@ -101,19 +102,23 @@ export default function App() {
     const newValue = e.target.value;
     const isDeleting = newValue.length < pages[currentPage].length;
 
+    // Always allow deletion
     if (isDeleting) {
       updatePageText(newValue);
       return;
     }
 
+    // If we can't measure yet, just allow the input
     if (!measureRef.current || maxHeight === 0) {
       updatePageText(newValue);
       return;
     }
 
+    // Measure the proposed new content
     measureRef.current.textContent = newValue || " ";
     const textHeight = measureRef.current.offsetHeight;
 
+    // Reject only if it would overflow the page
     if (textHeight > maxHeight) return;
 
     updatePageText(newValue);
@@ -155,64 +160,6 @@ export default function App() {
     }
   };
 
-  // === PDF Export ===
-  const exportToPDF = () => {
-    try {
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentWidth = pageWidth - margin * 2;
-
-      // Use courier (monospace) as a stand-in for the Minecraft font —
-      // jsPDF's built-in fonts don't include Minecraft, but courier keeps a
-      // similar blocky/typewriter feel. For the true Minecraft font you'd
-      // need to embed the TTF via doc.addFont().
-      doc.setFont("courier", "normal");
-
-      pages.forEach((pageText, i) => {
-        if (i > 0) doc.addPage();
-
-        // Page header (page number)
-        doc.setFontSize(10);
-        doc.setTextColor(120, 120, 120);
-        doc.text(
-          `Page ${i + 1} of ${pages.length}`,
-          pageWidth - margin,
-          margin - 5,
-          { align: "right" }
-        );
-
-        // Page body
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        const lines = doc.splitTextToSize(pageText || " ", contentWidth);
-
-        let y = margin + 5;
-        const lineHeight = 7;
-
-        lines.forEach((line) => {
-          if (y > pageHeight - margin) {
-            doc.addPage();
-            y = margin + 5;
-          }
-          doc.text(line, margin, y);
-          y += lineHeight;
-        });
-      });
-
-      doc.save("minecraft-book.pdf");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to export PDF.");
-    }
-  };
-
   const changeScenery = () => {
     setCurrentSceneryIndex((prev) => (prev + 1) % sceneryVideos.length);
   };
@@ -239,6 +186,7 @@ export default function App() {
         autoPlay
         loop
         muted
+        preload="auto"
         playsInline
         className="absolute inset-0 w-full h-full object-cover"
       >
@@ -420,27 +368,20 @@ export default function App() {
           className="absolute top-0 left-0 text-[1.125rem] whitespace-pre-wrap break-words invisible pointer-events-none select-none"
         />
 
-        <div className="flex justify-center mt-4 space-x-2 flex-wrap gap-y-2">
+        <div className="flex justify-center mt-4 space-x-4">
           <button
             onClick={copyCurrentPage}
             style={{ fontFamily: "MinecraftRegular" }}
-            className="minecraft-btn text-center text-white truncate p-1 px-2 border-2 border-b-4 hover:text-yellow-200"
+            className="minecraft-btn w-30 text-center text-white truncate p-1 border-2 border-b-4 hover:text-yellow-200"
           >
             Copy Page
           </button>
           <button
             onClick={copyWholeBook}
             style={{ fontFamily: "MinecraftRegular" }}
-            className="minecraft-btn text-center text-white truncate p-1 px-2 border-2 border-b-4 hover:text-yellow-200"
+            className="minecraft-btn w-30 text-center text-white truncate p-1 border-2 border-b-4 hover:text-yellow-200"
           >
             Copy Book
-          </button>
-          <button
-            onClick={exportToPDF}
-            style={{ fontFamily: "MinecraftRegular" }}
-            className="minecraft-btn text-center text-white truncate p-1 px-2 border-2 border-b-4 hover:text-yellow-200"
-          >
-            Export PDF
           </button>
 
           {/* Bottom-right LinkedIn Button */}
